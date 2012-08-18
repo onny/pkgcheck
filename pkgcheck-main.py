@@ -1,15 +1,22 @@
 #!/usr/bin/python3
 
-import os, re
+import os, re, argparse
 
-# todo: path arg
+# todo: -l arg default val fails while parsing
 
-level = 2 # recursion depth
 packages = [
     # filepath , pkgname, pkgver, source, watchurl, aurver, upstreamver
 ]
+parser = argparse.ArgumentParser(description='''Scan directory for PKGBUILDs and
+                                 check for upstream updates.''')
+parser.add_argument('-l', '--level', type=int, default=2, dest='level', nargs=1, help='''recursion depth for the file
+                    crawler''')
+parser.add_argument('DIR', default='.', nargs=1,
+                    help='''directory where to search for PKGBUILD files''')
 
-def walklevel(some_dir, level=1):
+args = parser.parse_args()
+
+def walklevel(some_dir, level):
     some_dir = some_dir.rstrip(os.path.sep)
     assert os.path.isdir(some_dir)
     num_sep = some_dir.count(os.path.sep)
@@ -22,13 +29,13 @@ def walklevel(some_dir, level=1):
 def analyze_pkgbuild(filepath):
     print(filepath)
 
-def scandir(path):
+def scandir(path, level):
     for (path, dirs, files) in walklevel(path,level):
         if "PKGBUILD" in files:
             path = path+"/PKGBUILD"
             packages.append({"filepath": path, "pkgname": "", "pkgver": "", "source": "", "watchurl": "", "aurver": "", "upstreamver": ""})
 
-scandir("../aur-packets/")
+scandir(args.DIR[0], args.level[0])
 
 for package in packages:
     analyze_pkgbuild(package['filepath'])
