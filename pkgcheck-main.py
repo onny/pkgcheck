@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# yaourt -S parched-git python-prettytable python3-aur
+# yaourt -S parched-git python3-aur
 
 # validate pkgbuild with namcap
 # check for updates using w3watch?
@@ -18,9 +18,9 @@
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
 
 import os, re, argparse
-from prettytable import PrettyTable # print results in a table
+#from prettytable import PrettyTable # print results in a table
 from parched import PKGBUILD # python lib parched parses the PKGBUILDs
-from AUR import AUR
+from AUR import AUR # query the AUR with this lib
 
 packages = dict()
 aur_session = AUR()
@@ -36,6 +36,72 @@ parser.add_argument('DIR', default='.', nargs=1,
 
 args = parser.parse_args()
 
+class pkgcheck:
+    def __init__(self, filepath):
+        self.filepath = filepath 
+        package = PKGBUILD(filepath)
+
+        for generator in aur_session.aur_info(package.name):
+                aurquery = generator
+
+        #text = 'CURRENT_VERSION = "0.4.11.286"' 
+        #pattern = r'"([0-9\./\\-]*)"'
+        #print(re.search(pattern, text).group(1))
+
+        self.pkgname = package.name
+        self.pkgver = str(package.version)+"-"+str(package.release)[:-2]
+        # todo
+        self.aurver = "0.1" # aurquery['Version']
+        self.source = ""
+        self.watchurl = ""
+        self.upstreamver = ""
+
+    def check_upstream(self):
+        # todo
+        print("check upstream")
+
+    def compare_versions(self):
+        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and self.upstreamver.len() != 0:
+            return 1 # red
+        else:
+            return 0 # green
+
+    def print_row(self):
+        if self.compare_versions() == 0:
+            print('\033[92m', self.pkgname.ljust(30),
+                  self.pkgver.ljust(15),
+                  self.aurver.ljust(15),
+                  self.upstreamver,'\033[0m')
+        else:
+            print('\033[93m', self.pkgname.ljust(30),
+                  self.pkgver.ljust(15),
+                  self.aurver.ljust(15),
+                  self.upstreamver,'\033[0m')
+
+    def test_local(self):
+        # todo
+        print("test lokal")
+
+    def test_aur(self):
+        # todo
+        print("test aur")
+
+    def fetch_aur(self):
+        # todo
+        print("fetch aur")
+
+    def fetch_upstream(self):
+        # todo
+        print("fetch upstream")
+
+    def push_aur(self):
+        # todo
+        print("push aur")
+
+    def push_git(self):
+        # todo
+        print("push git")
+
 def walklevel(some_dir, level):
     some_dir = some_dir.rstrip(os.path.sep)
     assert os.path.isdir(some_dir)
@@ -50,50 +116,16 @@ def scandir(path, level):
     for (path, dirs, files) in walklevel(path,level):
         if "PKGBUILD" in files:
             path = path+"/PKGBUILD"
-            package = PKGBUILD(path)
-            for generator in aur_session.aur_info(package.name):
-                aurquery = generator
+            package = pkgcheck(path)
+            package.print_row()
+            #vars(package)
+            packages = {package}
 
-            packages[package.name] = {'filepath': path, 'pkgver':
-                                      str(package.version)+"-"+str(package.release)[:-2], 'source': '',
-                                      'watchurl': '', 'aurver':
-                                      aurquery['Version'], 'upstreamver': '' }
-            print_row(package.name)
-
-def compare_versions(packagename):
-    localver = packages[packagename]['pkgver'].split("-")
-    aurver = packages[packagename]['aurver'].split("-")
-    upstreamver = packages[packagename]['upstreamver'].split("-")
-
-    if upstreamver > localver or upstreamver > aurver and upstreamver.len() != 0:
-        return 1 # red
-    else:
-        return 0 # green
-
-def print_row(packagename):
-    result = compare_versions(packagename)
-    if result == 0:
-        print('\033[92m', packagename.ljust(30),
-              packages[packagename]['pkgver'].ljust(15),
-              packages[packagename]['aurver'].ljust(15),
-              packages[packagename]['upstreamver'],'\033[0m')
-    else:
-        print('\033[93m', packagename.ljust(30),
-              packages[packagename]['pkgver'].ljust(15),
-              packages[packagename]['aurver'].ljust(15),
-              packages[packagename]['upstreamver'],'\033[0m')
-
-
+# Print table header
 print("Name".ljust(30), 
       "Local version".ljust(15),
       "Aur version".ljust(15),
       "Upstream version")
-
+# Start scanning the directory for PKGBUILDs
 scandir(args.DIR[0], args.level[0])
-
-#text = 'CURRENT_VERSION = "0.4.11.286"' 
-#pattern = r'"([0-9\./\\-]*)"'
-#print(re.search(pattern, text).group(1))
-
-# hieraus ne klasse zu machen wie z.B. package.print_row() oder
-# package.compare_versions() wäre ganz cool
+print(packages)
