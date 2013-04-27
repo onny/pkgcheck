@@ -16,6 +16,8 @@
 # - option: --test-locale / --test-remote. Packete werden in tmp geschoben /
 #   heruntergeladen und kompiliert zum test.
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
+# - aurquery schlägt noch fehl bei packeten die nicht im aur sind:
+#   springerlink_download
 
 import os, re, argparse
 #from prettytable import PrettyTable # print results in a table
@@ -29,8 +31,8 @@ parser = argparse.ArgumentParser(description='''Scan directory for PKGBUILDs and
                                  check for upstream updates.''')
 parser.add_argument('-l', '--level', type=int, default=2, dest='level', nargs=1, help='''recursion depth for the file
                     crawler''')
-parser.add_argument('-a', '--all', help='''list all packages,
-                    even the up-to-date ones''')
+parser.add_argument('-a', '--all', help='list all packages, even the up-to-date ones',
+                   action="store_true")
 parser.add_argument('DIR', default='.', nargs=1,
                     help='''directory where to search for PKGBUILD files''')
 
@@ -51,7 +53,7 @@ class pkgcheck:
         self.pkgname = package.name
         self.pkgver = str(package.version)+"-"+str(package.release)[:-2]
         # todo
-        self.aurver = "0.1" # aurquery['Version']
+        self.aurver = "3.0" # aurquery['Version']
         self.source = ""
         self.watchurl = ""
         self.upstreamver = ""
@@ -61,13 +63,13 @@ class pkgcheck:
         print("check upstream")
 
     def compare_versions(self):
-        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and self.upstreamver.len() != 0:
+        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and str(self.upstreamver).__len__() != 0:
             return 1 # red
         else:
             return 0 # green
 
-    def print_row(self):
-        if self.compare_versions() == 0:
+    def print_row(self,state):
+        if state:
             print('\033[92m', self.pkgname.ljust(30),
                   self.pkgver.ljust(15),
                   self.aurver.ljust(15),
@@ -117,7 +119,8 @@ def scandir(path, level):
         if "PKGBUILD" in files:
             path = path+"/PKGBUILD"
             package = pkgcheck(path)
-            package.print_row()
+            if package.compare_versions() == 0 and args.all:
+                package.print_row(1) # print updated, green packages
             #vars(package)
             packages = {package}
 
@@ -126,6 +129,10 @@ print("Name".ljust(30),
       "Local version".ljust(15),
       "Aur version".ljust(15),
       "Upstream version")
+
 # Start scanning the directory for PKGBUILDs
-scandir(args.DIR[0], args.level[0])
+if type(args.level) == list:
+    scandir(args.DIR[0], args.level[0])
+else:
+    scandir(args.DIR[0], args.level)
 print(packages)
