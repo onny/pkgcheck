@@ -9,17 +9,18 @@
 # - diff versions (wenn in einer zeile strings diffen, dann rot)
 # - upstream releases (_watch mit regex)
 # - argparse version
+#   unable to call -v alone, DIR still required?
 # - print summary at the end of the program like
 #   x packages scanned, x outdated, x unlinsted, x errors
-# - -l arg default val fails while parsing
-#   default wird nicht auf 2 gesetzt
 # - option: --test-locale / --test-remote. Packete werden in tmp geschoben /
 #   heruntergeladen und kompiliert zum test.
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
 # - aurquery schlägt noch fehl bei packeten die nicht im aur sind:
 #   springerlink_download
+# - packages dict is still empty at the end :/
 
-import os, re, argparse
+import os, re, argparse # filebrowsing, regex, argparse
+from sys import exit # for the exit statement
 #from prettytable import PrettyTable # print results in a table
 from parched import PKGBUILD # python lib parched parses the PKGBUILDs
 from AUR import AUR # query the AUR with this lib
@@ -33,10 +34,13 @@ parser.add_argument('-l', '--level', type=int, default=2, dest='level', nargs=1,
                     crawler''')
 parser.add_argument('-a', '--all', help='list all packages, even the up-to-date ones',
                    action="store_true")
+parser.add_argument('-v', '--version', help='print version of pkgcheck', action="store_true")
 parser.add_argument('DIR', default='.', nargs=1,
                     help='''directory where to search for PKGBUILD files''')
 
 args = parser.parse_args()
+
+version = "0.1"
 
 class pkgcheck:
     def __init__(self, filepath):
@@ -123,6 +127,10 @@ def scandir(path, level):
                 package.print_row(1) # print updated, green packages
             #vars(package)
             packages = {package}
+
+if args.version:
+    print("pkgcheck version: "+version)
+    exit(0)
 
 # Print table header
 print("Name".ljust(30), 
