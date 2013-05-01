@@ -25,7 +25,7 @@
 # zugelassene zeichen), wenn keine versionsnummer, dann return wert wieder
 # md5summen
 
-import os, re, argparse # filebrowsing, regex, argparse
+import os, re, argparse, urllib, httplib2 # filebrowsing, regex, argparse
 from sys import exit # for the exit statement
 #from prettytable import PrettyTable # print results in a table
 from parched import PKGBUILD # python lib parched parses the PKGBUILDs
@@ -33,6 +33,7 @@ from AUR import AUR # query the AUR with this lib
 
 packages = dict()
 aur_session = AUR()
+http = httplib2.Http()
 
 parser = argparse.ArgumentParser(description='''Scan directory for PKGBUILDs and
                                  check for upstream updates.''')
@@ -47,6 +48,26 @@ parser.add_argument('DIR', default='.', nargs=1,
 args = parser.parse_args()
 
 version = "0.1"
+
+def url_regex(url, regex):
+    # body = {'is_utf8': 1, 'hinz': self.user, 'kunz': self.password}
+    headers = {'Content-type': 'application/x-www-form-urlencoded'}
+    response, content = http.request(url, 'GET', headers=headers)
+    # body=urllib.parse.urlencode(body))
+    matchObject = re.search(r''+regex, content.decode("utf-8"))
+    if matchObject:
+        return matchObject.group()
+    return 0
+
+def parse_watch(filepath):
+    f = open(filepath)
+    for line in f:
+        p = re.search(r'^\s*_watch\s*=\(.*\)$',line) # todo: match until EOL or Hash for commentary
+        if p:
+            f.close()
+            return p.group()
+    f.close()
+    pass
 
 def dummywarn(self,msg):
     pass
@@ -189,3 +210,6 @@ if type(args.level) == list:
 else:
     scandir(args.DIR[0], args.level)
 # todo: print(packages)
+
+print(url_regex('http://live-installer-autoupdate.s3.amazonaws.com/latest_version.js','[\d.]*\d+'))
+print(parse_watch('/home/onny/projects/aur-packets/btlive/PKGBUILD'))
