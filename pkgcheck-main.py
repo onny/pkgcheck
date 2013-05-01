@@ -12,12 +12,14 @@
 #   unable to call -v alone, DIR still required?
 # - print summary at the end of the program like
 #   x packages scanned, x outdated, x unlinsted, x errors
+# - print stat while scanning
 # - option: --test-locale / --test-remote. Packete werden in tmp geschoben /
 #   heruntergeladen und kompiliert zum test.
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
 # - aurquery schlägt noch fehl bei packeten die nicht im aur sind:
 #   springerlink_download
 # - packages dict is still empty at the end :/
+# - parse flagged out of date in AUR
 
 import os, re, argparse # filebrowsing, regex, argparse
 from sys import exit # for the exit statement
@@ -36,18 +38,29 @@ parser.add_argument('-a', '--all', help='list all packages, even the up-to-date 
                    action="store_true")
 parser.add_argument('-v', '--version', help='print version of pkgcheck', action="store_true")
 parser.add_argument('DIR', default='.', nargs=1,
-                    help='''directory where to search for PKGBUILD files''')
+                    help='''directory or file containing PKGBUILD(s)''')
 
 args = parser.parse_args()
 
 version = "0.1"
 
+def dummywarn(self,msg):
+    pass
+
 class pkgcheck:
+    package_count = 0
+
     def __init__(self, filepath):
         self.filepath = filepath 
         package = PKGBUILD(filepath)
 
-        for generator in aur_session.aur_info(package.name):
+        found = 0
+        aur_session.chwarn(dummywarn)
+        for generator in aur_session.aur_search(package.name):
+            if generator['Name'] == package.name: found = 1
+
+        if found:
+            for generator in aur_session.aur_info(package.name):
                 aurquery = generator
 
         #text = 'CURRENT_VERSION = "0.4.11.286"' 
@@ -57,12 +70,21 @@ class pkgcheck:
         self.pkgname = package.name
         self.pkgver = str(package.version)+"-"+str(package.release)[:-2]
         # todo
-        self.aurver = "3.0" # aurquery['Version']
+        if found:
+            self.aurver = aurquery['Version']
+        else:
+            self.aurver = "-"
         self.source = ""
         self.watchurl = ""
         self.upstreamver = ""
 
+        pkgcheck.package_count += 1
+
+    def __del__(self):
+        pkgcheck.package_count -= 1
+
     def check_upstream(self):
+        pass
         # todo
         print("check upstream")
 
@@ -86,26 +108,32 @@ class pkgcheck:
 
     def test_local(self):
         # todo
+        pass
         print("test lokal")
 
     def test_aur(self):
         # todo
+        pass
         print("test aur")
 
     def fetch_aur(self):
         # todo
+        pass
         print("fetch aur")
 
     def fetch_upstream(self):
         # todo
+        pass
         print("fetch upstream")
 
     def push_aur(self):
         # todo
+        pass
         print("push aur")
 
     def push_git(self):
         # todo
+        pass
         print("push git")
 
 def walklevel(some_dir, level):
@@ -119,28 +147,43 @@ def walklevel(some_dir, level):
             del dirs[:]
 
 def scandir(path, level):
-    for (path, dirs, files) in walklevel(path,level):
-        if "PKGBUILD" in files:
-            path = path+"/PKGBUILD"
-            package = pkgcheck(path)
-            if package.compare_versions() == 0 and args.all:
-                package.print_row(1) # print updated, green packages
-            #vars(package)
-            packages = {package}
+    if os.path.isfile(path):
+        package = pkgcheck(path)
+        # Print table header
+        print("Name".ljust(30), 
+              "Local version".ljust(15),
+              "Aur version".ljust(15),
+              "Upstream version")
+        if package.compare_versions() == 0 and args.all:
+            package.print_row(1) # print updated, green packages
+    else:
+        if os.path.exists(path):
+            # Print table header
+            print("Name".ljust(30), 
+                  "Local version".ljust(15),
+                  "Aur version".ljust(15),
+                  "Upstream version")
+            for (path, dirs, files) in walklevel(path,level):
+                if "PKGBUILD" in files:
+                    path = path+"/PKGBUILD"
+                    package = pkgcheck(path)
+                    if package.compare_versions() == 0 and args.all:
+                        package.print_row(1) # print updated, green packages
+                    #vars(package)
+                    packages = {package}
+        else:
+            print("File or directory does not exists")
 
 if args.version:
     print("pkgcheck version: "+version)
     exit(0)
 
-# Print table header
-print("Name".ljust(30), 
-      "Local version".ljust(15),
-      "Aur version".ljust(15),
-      "Upstream version")
 
 # Start scanning the directory for PKGBUILDs
 if type(args.level) == list:
     scandir(args.DIR[0], args.level[0])
 else:
     scandir(args.DIR[0], args.level)
-print(packages)
+# todo: print(packages)
+
+# next todo: check if aur package exists before quering its stuff
