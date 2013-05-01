@@ -2,7 +2,6 @@
 # yaourt -S parched-git python3-aur
 
 # validate pkgbuild with namcap
-# check for updates using w3watch?
 # - or use http://jue.li/crux/ck4up/
 
 # todo:
@@ -16,10 +15,15 @@
 # - option: --test-locale / --test-remote. Packete werden in tmp geschoben /
 #   heruntergeladen und kompiliert zum test.
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
-# - aurquery schlägt noch fehl bei packeten die nicht im aur sind:
-#   springerlink_download
 # - packages dict is still empty at the end :/
 # - parse flagged out of date in AUR
+
+# _watch='uri','regex'
+# wenn kein _watch, dann md5sum auf page
+# wenn nur watch uri, dann md5sum auf watchuri
+# check return von uri und regex auf versionsnummernsyntax (einzeiler,
+# zugelassene zeichen), wenn keine versionsnummer, dann return wert wieder
+# md5summen
 
 import os, re, argparse # filebrowsing, regex, argparse
 from sys import exit # for the exit statement
@@ -185,5 +189,3 @@ if type(args.level) == list:
 else:
     scandir(args.DIR[0], args.level)
 # todo: print(packages)
-
-# next todo: check if aur package exists before quering its stuff
