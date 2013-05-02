@@ -62,6 +62,9 @@ def url_regex(url, regex):
         return matchObject.group()
     return 0
 
+def url_md5(url):
+    return "64348364726482467428"
+
 def parse_watch(filepath):
     f = open(filepath)
     for line in f:
@@ -103,15 +106,21 @@ class pkgcheck:
             self.aurver = aurquery['Version']
         else:
             self.aurver = "-"
-        self.source = ""
+        if package.url:
+            self.url = package.url
         self.watchurl = ""
 
         watch_params = parse_watch(filepath)
         if watch_params:
             if len(watch_params) == 2:
                 self.upstreamver = url_regex(watch_params[0].strip("'"),watch_params[1].strip("'"))
+            if len(watch_params) == 1:
+                self.upstreamver = url_md5(watch_params[0].strip("'"))
         else:
-            self.upstreamver = "not changed since last check"
+            if self.url:
+                self.upstreamver = url_md5(self.url)
+            else:
+                self.upstreamver = "unable to check upstream"
 
         pkgcheck.package_count += 1
 
@@ -124,7 +133,7 @@ class pkgcheck:
         print("check upstream")
 
     def compare_versions(self):
-        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and str(self.upstreamver).__len__() != 0:
+        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and str(self.upstreamver).len() != 0:
             return 1 # red
         else:
             return 0 # green
@@ -204,6 +213,8 @@ def scandir(path, level):
                     package = pkgcheck(path)
                     if package.compare_versions() == 0 and args.all:
                         package.print_row(1) # print updated, green packages
+                    else:
+                        package.print_row(0) # print updated, yellow packages
                     #vars(package)
                     packages = {package}
         else:
