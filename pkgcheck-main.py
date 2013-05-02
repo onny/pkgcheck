@@ -25,6 +25,9 @@
 # zugelassene zeichen), wenn keine versionsnummer, dann return wert wieder
 # md5summen
 
+# write upstreamcheck resuls to .local/share/pkgcheck with
+# http://docs.python.org/3.3/library/configparser.html
+
 import os, re, argparse, urllib, httplib2 # filebrowsing, regex, argparse
 from sys import exit # for the exit statement
 #from prettytable import PrettyTable # print results in a table
@@ -62,10 +65,11 @@ def url_regex(url, regex):
 def parse_watch(filepath):
     f = open(filepath)
     for line in f:
-        p = re.search(r'^\s*_watch\s*=\(.*\)$',line) # todo: match until EOL or Hash for commentary
+        p = re.search(r'^\s*_watch\s*=\s*(.*?)$',line) # todo: match until EOL or Hash for commentary
         if p:
             f.close()
-            return p.group()
+            return p.group(1).strip('(|)').split(",") # todo: klammern nur am
+                                                      # anfang und ende stipen
     f.close()
     pass
 
@@ -101,7 +105,13 @@ class pkgcheck:
             self.aurver = "-"
         self.source = ""
         self.watchurl = ""
-        self.upstreamver = ""
+
+        watch_params = parse_watch(filepath)
+        if watch_params:
+            if len(watch_params) == 2:
+                self.upstreamver = url_regex(watch_params[0].strip("'"),watch_params[1].strip("'"))
+        else:
+            self.upstreamver = "not changed since last check"
 
         pkgcheck.package_count += 1
 
@@ -211,5 +221,4 @@ else:
     scandir(args.DIR[0], args.level)
 # todo: print(packages)
 
-print(url_regex('http://live-installer-autoupdate.s3.amazonaws.com/latest_version.js','[\d.]*\d+'))
-print(parse_watch('/home/onny/projects/aur-packets/btlive/PKGBUILD'))
+
