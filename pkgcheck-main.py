@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# yaourt -S parched-git python3-aur
+# yaourt -S parched-git python3-aur python-requests
 
 # validate pkgbuild with namcap
 # - or use http://jue.li/crux/ck4up/
@@ -28,7 +28,11 @@
 # write upstreamcheck resuls to .local/share/pkgcheck with
 # http://docs.python.org/3.3/library/configparser.html
 
-import os, re, argparse, urllib, httplib2 # filebrowsing, regex, argparse
+import os, re, argparse  # filebrowsing, regex, argparse
+import hashlib
+import requests
+from urllib.parse import urlparse
+import string
 from sys import exit # for the exit statement
 #from prettytable import PrettyTable # print results in a table
 from parched import PKGBUILD # python lib parched parses the PKGBUILDs
@@ -36,7 +40,6 @@ from AUR import AUR # query the AUR with this lib
 
 packages = dict()
 aur_session = AUR()
-http = httplib2.Http()
 
 parser = argparse.ArgumentParser(description='''Scan directory for PKGBUILDs and
                                  check for upstream updates.''')
@@ -53,17 +56,23 @@ args = parser.parse_args()
 version = "0.1"
 
 def url_regex(url, regex):
-    # body = {'is_utf8': 1, 'hinz': self.user, 'kunz': self.password}
-    headers = {'Content-type': 'application/x-www-form-urlencoded'}
-    response, content = http.request(url, 'GET', headers=headers)
-    # body=urllib.parse.urlencode(body))
-    matchObject = re.search(r''+regex, content.decode("utf-8"))
+    try:
+        r = requests.get(url)
+    except requests.exceptions.MissingSchema:
+        return "Malformed url"
+    matchObject = re.search(r''+regex, r.text)
     if matchObject:
         return matchObject.group()
     return 0
 
 def url_md5(url):
-    return "64348364726482467428"
+    try:
+        r = requests.get(url)
+    except requests.exceptions.MissingSchema:
+        return "Malformed url"
+    m = hashlib.md5()
+    m.update(r.text.encode('utf-8'))
+    return m.hexdigest()
 
 def parse_watch(filepath):
     f = open(filepath)
@@ -86,14 +95,9 @@ class pkgcheck:
         self.filepath = filepath 
         package = PKGBUILD(filepath)
 
-        found = 0
         aur_session.chwarn(dummywarn)
-        for generator in aur_session.aur_search(package.name):
-            if generator['Name'] == package.name: found = 1
-
-        if found:
-            for generator in aur_session.aur_info(package.name):
-                aurquery = generator
+        for generator in aur_session.aur_info(package.name):
+            aurquery = generator
 
         #text = 'CURRENT_VERSION = "0.4.11.286"' 
         #pattern = r'"([0-9\./\\-]*)"'
@@ -102,9 +106,9 @@ class pkgcheck:
         self.pkgname = package.name
         self.pkgver = str(package.version)+"-"+str(package.release)[:-2]
         # todo
-        if found:
+        try:
             self.aurver = aurquery['Version']
-        else:
+        except:
             self.aurver = "-"
         if package.url:
             self.url = package.url
@@ -231,5 +235,3 @@ if type(args.level) == list:
 else:
     scandir(args.DIR[0], args.level)
 # todo: print(packages)
-
-
