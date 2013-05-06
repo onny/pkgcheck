@@ -17,6 +17,7 @@
 # - --ignore <packages>. Liste von Packetnamen, die nicht geprüft werden sollen
 # - packages dict is still empty at the end :/
 # - parse flagged out of date in AUR
+# - unable to parse array of pkgbuilds
 
 # _watch='uri','regex'
 # wenn kein _watch, dann md5sum auf page
@@ -33,6 +34,8 @@ import hashlib
 import requests
 from urllib.parse import urlparse
 import string
+from distutils.version import LooseVersion, StrictVersion
+    # useful to compare package versions
 from sys import exit # for the exit statement
 #from prettytable import PrettyTable # print results in a table
 from parched import PKGBUILD # python lib parched parses the PKGBUILDs
@@ -62,7 +65,7 @@ def url_regex(url, regex):
         return "Malformed url"
     matchObject = re.search(r''+regex, r.text)
     if matchObject:
-        return matchObject.group()
+        return matchObject.group(1)
     return 0
 
 def url_md5(url):
@@ -93,15 +96,30 @@ class pkgcheck:
 
     def __init__(self, filepath):
         self.filepath = filepath 
-        package = PKGBUILD(filepath)
+        try:
+            package = PKGBUILD(filepath)
+        except ValueError:
+            self.pkgname = 'Error parsing file at ' + filepath
+            self.pkgver = '-'
+            self.aurver = '-'
+            self.upstreamver = '-'
+            return 
+        except TypeError:
+            self.pkgname = 'Error parsing file at ' + filepath
+            self.pkgver = '-'
+            self.aurver = '-'
+            self.upstreamver = '-'
+            return 
+        if type(package.name) == list:
+            self.pkgname = 'Error parsing file at ' + filepath
+            self.pkgver = '-'
+            self.aurver = '-'
+            self.upstreamver = '-'
+            return 
 
         aur_session.chwarn(dummywarn)
         for generator in aur_session.aur_info(package.name):
             aurquery = generator
-
-        #text = 'CURRENT_VERSION = "0.4.11.286"' 
-        #pattern = r'"([0-9\./\\-]*)"'
-        #print(re.search(pattern, text).group(1))
 
         self.pkgname = package.name
         self.pkgver = str(package.version)+"-"+str(package.release)[:-2]
@@ -112,6 +130,8 @@ class pkgcheck:
             self.aurver = "-"
         if package.url:
             self.url = package.url
+        else:
+            self.url = ""
         self.watchurl = ""
 
         watch_params = parse_watch(filepath)
@@ -137,7 +157,7 @@ class pkgcheck:
         print("check upstream")
 
     def compare_versions(self):
-        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and str(self.upstreamver).len() != 0:
+        if self.upstreamver > self.pkgver or self.upstreamver > self.aurver and self.upstreamver:
             return 1 # red
         else:
             return 0 # green
@@ -204,6 +224,8 @@ def scandir(path, level):
               "Upstream version")
         if package.compare_versions() == 0 and args.all:
             package.print_row(1) # print updated, green packages
+        else:
+            package.print_row(0) # print updated, yellow packages
     else:
         if os.path.exists(path):
             # Print table header
@@ -227,7 +249,6 @@ def scandir(path, level):
 if args.version:
     print("pkgcheck version: "+version)
     exit(0)
-
 
 # Start scanning the directory for PKGBUILDs
 if type(args.level) == list:
