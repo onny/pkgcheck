@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# yaourt -S parched-git python3-aur python-requests
+# yaourt -S parched-git python3-aur python-requests python-xdg
 
 # validate pkgbuild with namcap
 # - or use http://jue.li/crux/ck4up/
@@ -18,22 +18,27 @@
 # - packages dict is still empty at the end :/
 # - parse flagged out of date in AUR
 # - unable to parse array of pkgbuilds
+# - failed to parse: 
+    # _watch=('http://www.joomla.org/download.html',' ([\d.]*) Full Package,')
+    # ["'http://www.joomla.org/download.html'", "' ([\\d.]*) Full Package", "'"]
+# - strict and looseversion:
+    # http://stackoverflow.com/questions/1714027/version-number-comparison
 
-# _watch='uri','regex'
-# wenn kein _watch, dann md5sum auf page
+# _watch='uri','regex' [done]
+# wenn kein _watch, dann md5sum auf page [done]
 # wenn nur watch uri, dann md5sum auf watchuri
 # check return von uri und regex auf versionsnummernsyntax (einzeiler,
 # zugelassene zeichen), wenn keine versionsnummer, dann return wert wieder
 # md5summen
-
-# write upstreamcheck resuls to .local/share/pkgcheck with
-# http://docs.python.org/3.3/library/configparser.html
 
 import os, re, argparse  # filebrowsing, regex, argparse
 import hashlib
 import requests
 from urllib.parse import urlparse
 import string
+import configparser # store checksums to .local/share/pkgcheck
+import xdg.BaseDirectory as basedir # xdg basedir where to store program data
+import time, datetime
 from distutils.version import LooseVersion, StrictVersion
     # useful to compare package versions
 from sys import exit # for the exit statement
@@ -43,6 +48,7 @@ from AUR import AUR # query the AUR with this lib
 
 packages = dict()
 aur_session = AUR()
+config = configparser.ConfigParser()
 
 parser = argparse.ArgumentParser(description='''Scan directory for PKGBUILDs and
                                  check for upstream updates.''')
@@ -76,6 +82,25 @@ def url_md5(url):
     m = hashlib.md5()
     m.update(r.text.encode('utf-8'))
     return m.hexdigest()
+
+def check_md5(pkgname, md5sum):
+    ts = time.time()
+    if config.read(basedir.xdg_data_home+'/pkgcheck.session'):
+        if pkgname in config:
+            if config[pkgname]['md5sum'] == md5sum:
+                return "not changed since "+datetime.datetime.fromtimestamp(float(config[pkgname]['lastchecked'])).strftime('%Y-%m-%d')
+            else:
+                return "changed since "+datetime.datetime.fromtimestamp(float(config[pkgname]['lastchecked'])).strftime('%Y-%m-%d')
+        else:
+            config[pkgname] = {'md5sum': md5sum, 'lastchecked': str(ts)}
+            with open(basedir.xdg_data_home+'/pkgcheck.session', 'w') as configfile:
+                config.write(configfile)
+            return "changed since "+datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
+    else:
+        config[pkgname] = {'md5sum': md5sum, 'lastchecked': str(ts)}
+        with open(basedir.xdg_data_home+'/pkgcheck.session', 'w') as configfile:
+            config.write(configfile)
+        return "changed since "+datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
 
 def parse_watch(filepath):
     f = open(filepath)
@@ -142,7 +167,11 @@ class pkgcheck:
                 self.upstreamver = url_md5(watch_params[0].strip("'"))
         else:
             if self.url:
-                self.upstreamver = url_md5(self.url)
+                md5state = check_md5(self.pkgname, url_md5(self.url))
+                if md5state:
+                    self.upstreamver = md5state
+                else:
+                    self.upstreamver = md5state
             else:
                 self.upstreamver = "unable to check upstream"
 
